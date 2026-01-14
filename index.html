@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Моя Кінотека PRO</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Кінотека">
+<link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2503/2503508.png">
+    <style>
+        /* Основні стилі (темна тема в стилі iOS/Netflix) */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0b0b0b;
+            color: white;
+            margin: 0;
+            padding: 20px;
+        }
+        .container { max-width: 600px; margin: auto; }
+        h1 { color: #f5c518; text-align: center; font-size: 28px; }
+
+        /* Блоки пошуку та форми */
+        .search-box, .form {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            border: 1px solid #333;
+        }
+        
+        input, select, textarea {
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            background: #252525;
+            color: white;
+            font-size: 14px;
+        }
+        
+        input:focus { border-color: #f5c518; outline: none; }
+
+        .add-btn {
+            background: #f5c518;
+            color: black;
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .add-btn:hover { background: #e2b616; }
+
+        /* Картки фільмів */
+        .movie-card {
+            background: #1a1a1a;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            display: flex;
+            border: 1px solid #333;
+            animation: fadeIn 0.5s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .movie-card img {
+            width: 120px;
+            height: 180px;
+            object-fit: cover;
+        }
+        .movie-info { padding: 15px; flex: 1; position: relative; }
+        .movie-title { font-size: 20px; font-weight: bold; color: #f5c518; margin-bottom: 5px; }
+        .movie-meta { font-size: 13px; color: #aaa; margin-bottom: 8px; }
+        .movie-desc { font-size: 14px; color: #ddd; line-height: 1.4; margin-bottom: 10px; }
+        .movie-actors { font-size: 12px; color: #f5c518; background: #252525; padding: 5px 8px; border-radius: 5px; display: inline-block; }
+
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 15px;
+        }
+        .edit-btn { color: #44abff; cursor: pointer; font-size: 13px; font-weight: bold; }
+        .delete-btn { color: #ff4444; cursor: pointer; font-size: 13px; font-weight: bold; }
+
+        #cancelBtn { background: none; color: #888; border: none; cursor: pointer; text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎬 Моя Кінотека</h1>
+
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="🔍 Пошук за назвою, жанром чи акторами..." oninput="displayMovies()">
+        <select id="sortSelect" onchange="displayMovies()">
+            <option value="newest">Спочатку нові</option>
+            <option value="rating">За рейтингом (найкращі)</option>
+            <option value="alphabet">За алфавітом (А-Я)</option>
+        </select>
+    </div>
+    
+    <div class="form">
+        <h3 id="formTitle" style="margin:0; color: #f5c518;">Додати новий фільм</h3>
+        <input type="hidden" id="editId">
+        <input type="text" id="title" placeholder="Назва фільму *">
+        <input type="text" id="photo" placeholder="URL посилання на постер">
+        <input type="text" id="genre" placeholder="Жанр (напр. Драма, Комедія)">
+        <textarea id="desc" placeholder="Опис фільму" rows="2"></textarea>
+        <input type="text" id="actors" placeholder="Актори (через кому)">
+        <input type="number" id="rating" placeholder="Ваша оцінка (1-10)" min="1" max="10">
+        
+        <button id="mainBtn" class="add-btn" onclick="handleAction()">Додати до колекції</button>
+        <button id="cancelBtn" style="display:none;" onclick="resetForm()">Скасувати редагування</button>
+    </div>
+
+    <div id="movieList"></div>
+</div>
+
+<script>
+    let editMode = false;
+
+    // Завантаження при старті
+    document.addEventListener('DOMContentLoaded', displayMovies);
+
+    // Головна кнопка (Додати або Зберегти)
+    function handleAction() {
+        if (editMode) {
+            saveEdit();
+        } else {
+            addMovie();
+        }
+    }
+
+    function addMovie() {
+        const title = document.getElementById('title').value;
+        if(!title) return alert("Будь ласка, введіть хоча б назву фільму!");
+
+        const movie = {
+            id: Date.now(),
+            title: title,
+            photo: document.getElementById('photo').value || 'https://via.placeholder.com/120x180?text=No+Poster',
+            genre: document.getElementById('genre').value || 'Жанр не вказано',
+            desc: document.getElementById('desc').value || 'Опис відсутній...',
+            actors: document.getElementById('actors').value || 'Не вказано',
+            rating: parseFloat(document.getElementById('rating').value) || 0
+        };
+
+        let movies = JSON.parse(localStorage.getItem('myMovies') || '[]');
+        movies.push(movie);
+        localStorage.setItem('myMovies', JSON.stringify(movies));
+        
+        resetForm();
+        displayMovies();
+    }
+
+    function displayMovies() {
+        const list = document.getElementById('movieList');
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const sortBy = document.getElementById('sortSelect').value;
+        let movies = JSON.parse(localStorage.getItem('myMovies') || '[]');
+        
+        // Фільтрація
+        let filtered = movies.filter(m => 
+            m.title.toLowerCase().includes(query) || 
+            m.genre.toLowerCase().includes(query) || 
+            m.actors.toLowerCase().includes(query)
+        );
+
+        // Сортування
+        if (sortBy === 'rating') {
+            filtered.sort((a, b) => b.rating - a.rating);
+        } else if (sortBy === 'alphabet') {
+            filtered.sort((a, b) => a.title.localeCompare(b.title));
+        } else {
+            filtered.reverse(); // Нові зверху
+        }
+
+        // Рендеринг списку
+        list.innerHTML = filtered.map(m => `
+            <div class="movie-card">
+                <img src="${m.photo}" onerror="this.src='https://via.placeholder.com/120x180?text=Error'">
+                <div class="movie-info">
+                    <div class="movie-title">${m.title}</div>
+                    <div class="movie-meta">${m.genre} • ⭐ ${m.rating}/10</div>
+                    <div class="movie-desc">${m.desc}</div>
+                    <div class="movie-actors">👥 ${m.actors}</div>
+                    <div class="controls">
+                        <span class="edit-btn" onclick="editMovie(${m.id})">✎ Редагувати</span>
+                        <span class="delete-btn" onclick="deleteMovie(${m.id})">🗑 Видалити</span>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function editMovie(id) {
+        let movies = JSON.parse(localStorage.getItem('myMovies') || '[]');
+        const movie = movies.find(m => m.id === id);
+        
+        document.getElementById('editId').value = movie.id;
+        document.getElementById('title').value = movie.title;
+        document.getElementById('photo').value = movie.photo;
+        document.getElementById('genre').value = movie.genre;
+        document.getElementById('desc').value = movie.desc;
+        document.getElementById('actors').value = movie.actors;
+        document.getElementById('rating').value = movie.rating;
+
+        editMode = true;
+        document.getElementById('mainBtn').innerText = "Зберегти зміни";
+        document.getElementById('formTitle').innerText = "Редагування";
+        document.getElementById('cancelBtn').style.display = "inline-block";
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function saveEdit() {
+        const id = Number(document.getElementById('editId').value);
+        let movies = JSON.parse(localStorage.getItem('myMovies') || '[]');
+        
+        movies = movies.map(m => m.id === id ? {
+            ...m,
+            title: document.getElementById('title').value,
+            photo: document.getElementById('photo').value,
+            genre: document.getElementById('genre').value,
+            desc: document.getElementById('desc').value,
+            actors: document.getElementById('actors').value,
+            rating: parseFloat(document.getElementById('rating').value) || 0
+        } : m);
+
+        localStorage.setItem('myMovies', JSON.stringify(movies));
+        resetForm();
+        displayMovies();
+    }
+
+    function deleteMovie(id) {
+        if(confirm('Видалити цей фільм з колекції?')) {
+            let movies = JSON.parse(localStorage.getItem('myMovies') || '[]');
+            movies = movies.filter(m => m.id !== id);
+            localStorage.setItem('myMovies', JSON.stringify(movies));
+            displayMovies();
+        }
+    }
+
+    function resetForm() {
+        editMode = false;
+        document.querySelectorAll('.form input, .form textarea').forEach(el => el.value = '');
+        document.getElementById('mainBtn').innerText = "Додати до колекції";
+        document.getElementById('formTitle').innerText = "Додати новий фільм";
+        document.getElementById('cancelBtn').style.display = "none";
+    }
+</script>
+
+</body>
+</html>
